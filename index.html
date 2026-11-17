@@ -21,15 +21,74 @@
 </main>
 <footer class="footer"><div class="wrap">© <span id="year"></span> Allan Gomes Personal Trainer. Todos os direitos reservados.</div></footer>
 <button class="admin-trigger" id="adminOpen">Admin</button><a class="btn float wa" href="#" aria-label="WhatsApp">WhatsApp ↗</a>
-<div class="admin" id="admin"><div class="admin-box"><button class="close" id="adminClose" aria-label="Fechar">×</button><div class="eyebrow">Painel local</div><h2>Editar informações</h2><p class="notice">As alterações ficam salvas somente neste navegador. Para atualizar o conteúdo público para todos, edite o arquivo e publique uma nova versão.</p><label class="field">WhatsApp (DDI + DDD + número)<input id="cfgPhone" placeholder="5598999999999"></label><label class="field">Texto principal<textarea id="cfgIntro" rows="3"></textarea></label><label class="field">Instagram<input id="cfgInstagram" placeholder="https://instagram.com/seuperfil"></label><label class="field">Academias (uma por linha: nome | URL)<textarea id="cfgGyms" rows="5"></textarea></label><div class="admin-actions"><button class="btn" id="saveConfig">Salvar neste navegador</button><button class="btn outline" id="resetConfig">Restaurar padrão</button></div><div class="notice" id="saveNotice" aria-live="polite"></div></div></div>
+<div class="admin" id="admin"><div class="admin-box"><button class="close" id="adminClose" aria-label="Fechar">×</button><div class="eyebrow">Painel seguro</div><h2>Gerenciar o site</h2><div id="adminLogin"><label class="field">E-mail administrador<input id="adminEmail" type="email" value="allanjorgemsgomes@gmail.com" autocomplete="email"></label><button class="btn" id="sendLogin">Enviar link de acesso</button></div><p class="notice" id="adminStatus" aria-live="polite"></p><div id="adminFields" hidden><label class="field">WhatsApp (DDI + DDD + número)<input id="cfgPhone" placeholder="5598999999999"></label><label class="field">Texto principal<textarea id="cfgIntro" rows="3"></textarea></label><label class="field">Instagram<input id="cfgInstagram" placeholder="https://instagram.com/seuperfil"></label><label class="field">Academias (uma por linha: nome | URL)<textarea id="cfgGyms" rows="5"></textarea></label><div class="admin-actions"><button class="btn" id="saveConfig">Publicar alterações</button><button class="btn outline" id="resetConfig">Restaurar padrão</button></div><div class="notice" id="saveNotice" aria-live="polite"></div></div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const defaults={phone:"5598999999999",intro:"Treinos personalizados, orientação próxima e estratégia para você evoluir com segurança, consistência e confiança.",instagram:"",gyms:[["Academia 1",""],["Academia 2",""],["Academia 3",""],["Academia 4",""]]};
-let cfg={...defaults,gyms:defaults.gyms.map(x=>[...x])};
-try{const saved=JSON.parse(localStorage.getItem("allanPersonalConfig")||"null");if(saved)cfg={...cfg,...saved};}catch(e){}
+
+const defaults={phone:"",intro:"Treinos personalizados, orientação próxima e estratégia para você evoluir com segurança, consistência e confiança.",instagram:"",gyms:[]};
+let cfg={...defaults};
 const $=id=>document.getElementById(id);
-function render(){ $("intro").textContent=cfg.intro;const phone=(cfg.phone||"").replace(/\D/g,"");const wa=phone?"https://wa.me/"+phone+"?text="+encodeURIComponent("Olá, Allan! Gostaria de saber mais sobre o acompanhamento."): "#contato";document.querySelectorAll(".wa").forEach(a=>a.href=wa);$("gymList").innerHTML="";cfg.gyms.forEach(([name,url])=>{const el=document.createElement("div");el.className="gym";const strong=document.createElement("strong");strong.textContent=name||"Local de atendimento";el.appendChild(strong);if(url){const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent="Ver perfil ↗";el.appendChild(a);}else{const span=document.createElement("span");span.className="sub";span.textContent="Consulte disponibilidade";el.appendChild(span);} $("gymList").appendChild(el);});$("year").textContent=new Date().getFullYear();}
-function openAdmin(){ $("cfgPhone").value=cfg.phone;$("cfgIntro").value=cfg.intro;$("cfgInstagram").value=cfg.instagram||"";$("cfgGyms").value=cfg.gyms.map(x=>x.join(" | ")).join("\n");$("admin").classList.add("open");}
-$("adminOpen").addEventListener("click",openAdmin);$("adminClose").addEventListener("click",()=>$("admin").classList.remove("open"));
-$("saveConfig").addEventListener("click",()=>{cfg.phone=$("cfgPhone").value.trim();cfg.intro=$("cfgIntro").value.trim()||defaults.intro;cfg.instagram=$("cfgInstagram").value.trim();cfg.gyms=$("cfgGyms").value.split("\n").filter(Boolean).map(line=>{const p=line.split("|");return[(p[0]||"").trim(),(p[1]||"").trim()]});try{localStorage.setItem("allanPersonalConfig",JSON.stringify(cfg));$("saveNotice").textContent="Salvo neste navegador.";render();}catch(e){$("saveNotice").textContent="Não foi possível salvar neste navegador.";}});$("resetConfig").addEventListener("click",()=>{cfg={...defaults,gyms:defaults.gyms.map(x=>[...x])};localStorage.removeItem("allanPersonalConfig");render();openAdmin();$("saveNotice").textContent="Configurações padrão restauradas.";});render();
+const supabase=window.supabase.createClient("https://nfsxermnjbjailxcnput.supabase.co","sb_publishable_HfG0sZsqA44RoQtbGOudQA_hm3QgnXV");
+let adminSession=null;
+function render(){
+ $("intro").textContent=cfg.intro||defaults.intro;
+ const phone=(cfg.phone||"").replace(/\D/g,"");
+ const wa=phone?"https://wa.me/"+phone+"?text="+encodeURIComponent("Olá, Allan! Gostaria de saber mais sobre o acompanhamento."):"#contato";
+ document.querySelectorAll(".wa").forEach(a=>a.href=wa);
+ $("gymList").innerHTML="";
+ (cfg.gyms||[]).forEach(([name,url])=>{const el=document.createElement("div");el.className="gym";const strong=document.createElement("strong");strong.textContent=name||"Local de atendimento";el.appendChild(strong);if(url){const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent="Ver perfil ↗";el.appendChild(a);}else{const span=document.createElement("span");span.className="sub";span.textContent="Consulte disponibilidade";el.appendChild(span);} $("gymList").appendChild(el);});
+ $("year").textContent=new Date().getFullYear();
+}
+async function loadConfig(){
+ const {data,error}=await supabase.from("site_settings").select("content").eq("id",1).maybeSingle();
+ if(!error&&data?.content)cfg={...defaults,...data.content};
+ render();
+}
+function openAdmin(){
+ $("admin").classList.add("open");
+ $("adminFields").hidden=!adminSession;
+ $("adminLogin").hidden=!!adminSession;
+ $("cfgPhone").value=cfg.phone||"";$("cfgIntro").value=cfg.intro||defaults.intro;
+ $("cfgInstagram").value=cfg.instagram||"";$("cfgGyms").value=(cfg.gyms||[]).map(x=>x.join(" | ")).join("\n");
+ $("adminStatus").textContent=adminSession?"Sessão administrativa autenticada.":"Entre com o e-mail administrador para receber um link seguro de acesso.";
+}
+$("adminOpen").addEventListener("click",openAdmin);
+$("adminClose").addEventListener("click",()=>$("admin").classList.remove("open"));
+$("sendLogin").addEventListener("click",async()=>{
+ const email=$("adminEmail").value.trim().toLowerCase();
+ if(email!=="allanjorgemsgomes@gmail.com"){ $("adminStatus").textContent="Este e-mail não está autorizado.";return;}
+ $("sendLogin").disabled=true;
+ const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+ $("sendLogin").disabled=false;
+ $("adminStatus").textContent=error?"Não foi possível enviar o acesso: "+error.message:"Link de acesso enviado. Verifique a caixa de entrada e spam.";
+});
+supabase.auth.onAuthStateChange(async(_event,session)=>{
+ adminSession=session;
+ if(session){
+   const email=(session.user?.email||"").toLowerCase();
+   if(email!=="allanjorgemsgomes@gmail.com"){await supabase.auth.signOut();adminSession=null;$("adminStatus").textContent="Conta sem permissão administrativa.";return;}
+   $("adminFields").hidden=false;$("adminLogin").hidden=true;
+   $("adminStatus").textContent="Acesso autorizado para "+email;
+ }
+});
+$("saveConfig").addEventListener("click",async()=>{
+ if(!adminSession){$("saveNotice").textContent="Faça login para salvar.";return;}
+ const content={
+  phone:$("cfgPhone").value.trim(),
+  intro:$("cfgIntro").value.trim()||defaults.intro,
+  instagram:$("cfgInstagram").value.trim(),
+  gyms:$("cfgGyms").value.split("\n").filter(Boolean).map(line=>{const p=line.split("|");return[(p[0]||"").trim(),(p[1]||"").trim()]})
+ };
+ const {error}=await supabase.from("site_settings").upsert({id:1,content,updated_at:new Date().toISOString()});
+ if(error){$("saveNotice").textContent="Erro ao salvar: "+error.message;return;}
+ cfg=content;render();$("saveNotice").textContent="Atualizado no site para todos os visitantes.";
+});
+$("resetConfig").addEventListener("click",async()=>{
+ if(!adminSession)return;
+ const {error}=await supabase.from("site_settings").upsert({id:1,content:defaults,updated_at:new Date().toISOString()});
+ if(error){$("saveNotice").textContent="Erro: "+error.message;return;}
+ cfg={...defaults};render();openAdmin();$("saveNotice").textContent="Configurações padrão restauradas.";
+});
+loadConfig();
 </script>
 </body></html>
